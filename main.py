@@ -89,7 +89,8 @@ def parse_attributes(attributes):
             function = attr[3]
         except IndexError:
             function = lambda x: x
-        parsed.append((attr[0], attr[1], unit, function))
+        regex = re.compile(r'\|{}=([\d,\.]+){}'.format(attr[1], unit))
+        parsed.append((attr[0], attr[1], regex, function))
     return parsed 
 
 def get_ships(attributes, db=path.join(path.dirname(__file__), 'eve.db')):
@@ -120,15 +121,7 @@ def get_ships(attributes, db=path.join(path.dirname(__file__), 'eve.db')):
     
     return ships
 
-def main():
-    attributes = parse_attributes(ATTRIBUTES)
-    ships = get_ships(attributes)
-    
-    pages = get_pages(ships.keys(), download=False)
-    regex = {}
-    for attribute in attributes:
-        regex[attribute] = re.compile(r'\|{}=([\d,\.]+){}'.format(attribute[1], attribute[2]))
-    
+def check_values(pages, ships, attributes):
     for ship in pages.keys():
         for attribute in attributes:
             logger.debug('Attribute: %s Ship: %s', attribute[0], ship)
@@ -139,7 +132,7 @@ def main():
                 expected = None
             try:
                 value = Decimal(
-                        re.search(regex[attribute], pages[ship])\
+                        re.search(attribute[2], pages[ship])\
                         .expand(r'\1').replace(',', ''))
             except AttributeError:
                 if not expected == None:
@@ -148,6 +141,12 @@ def main():
             if not value == expected and abs(value - (expected or 0)) > 1:
                 print('For ship {} {} is {} but should be {}'\
                       .format(ship, attribute[1], value, expected))
+
+def main():
+    attributes = parse_attributes(ATTRIBUTES)
+    ships = get_ships(attributes)
+    pages = get_pages(ships.keys())
+    check_values(pages, ships, attributes)
     
 if __name__ == '__main__':
     log = logging.getLogger()
