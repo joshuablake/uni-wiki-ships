@@ -92,31 +92,37 @@ def parse_attributes(attributes):
         parsed.append((attr[0], attr[1], unit, function))
     return parsed 
 
-def main():
-    attributes = parse_attributes(ATTRIBUTES)
+def get_ships(attributes, db=path.join(path.dirname(__file__), 'eve.db')):
     db_attrs = [i[0] for i in attributes]
     try:
-        db_conn = sqlite3.connect(path.join(path.dirname(__file__), 'eve.db'))
+        db_conn = sqlite3.connect(db)
         db_ships = db_conn.execute(
-    'SELECT types.typeName, types.mass, types.capacity, types.volume, '
-    'attributes.attributeName, attTypes.valueInt, attTypes.valueFloat '
-    'FROM invTypes types '
-    'INNER JOIN dgmTypeAttributes attTypes ON attTypes.typeID = types.typeID '
-    'INNER JOIN dgmAttributeTypes attributes ON attributes.attributeID = attTypes.attributeID '
-    'INNER JOIN invGroups ON types.groupID = invGroups.groupID '
-    'WHERE invGroups.categoryID = 6 AND types.published = 1') 
+            'SELECT types.typeName, types.mass, types.capacity, types.volume, '
+            'attributes.attributeName, attTypes.valueInt, attTypes.valueFloat '
+            'FROM invTypes types '
+            'INNER JOIN dgmTypeAttributes attTypes ON attTypes.typeID = types.typeID '
+            'INNER JOIN dgmAttributeTypes attributes ON attributes.attributeID = attTypes.attributeID '
+            'INNER JOIN invGroups ON types.groupID = invGroups.groupID '
+            'WHERE invGroups.categoryID = 6 AND types.published = 1')
         ships = {}
         for i in db_ships:
-            ships[i[0]] = ships.get(i[0], {'mass': i[1], 'capacity':i[2], 'volume': i[3]})
+            ships[i[0]] = ships.get(i[0], {'mass':i[1], 'capacity':i[2], 'volume':i[3]})
             try:
                 ships[i[0]][i[4]] = Decimal(str(i[5] or i[6] or 0))
             except TypeError:
                 if i[4] in db_attrs:
                     phrase = 'Invalid value for {} on {} with value {}'.format(i[4], i[0], i[5] or i[6])
                     logger.warning(phrase)
-                    print(phrase)
+                    print phrase
+    
     finally:
         db_conn.close()
+    
+    return ships
+
+def main():
+    attributes = parse_attributes(ATTRIBUTES)
+    ships = get_ships(attributes)
     
     pages = get_pages(ships.keys(), download=False)
     regex = {}
