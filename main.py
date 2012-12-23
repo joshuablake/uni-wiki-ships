@@ -109,7 +109,7 @@ def main():
         for i in db_ships:
             ships[i[0]] = ships.get(i[0], {'mass': i[1], 'capacity':i[2], 'volume': i[3]})
             try:
-                ships[i[0]][i[4]] = Decimal(str(i[5] or i[6] or 0.0))
+                ships[i[0]][i[4]] = Decimal(str(i[5] or i[6] or 0))
             except TypeError:
                 if i[4] in db_attrs:
                     phrase = 'Invalid value for {} on {} with value {}'.format(i[4], i[0], i[5] or i[6])
@@ -125,20 +125,21 @@ def main():
     
     for ship in pages.keys():
         for attribute in attributes:
+            logger.debug('Attribute: %s Ship: %s', attribute[0], ship)
             try:
                 expected = Decimal(str(attribute[3](Decimal(ships[ship][attribute[0]]))))
             except KeyError:
                 logger.debug('Ship %s has no value in db for %s', ship, attribute[1])
-                expected = Decimal(0)          
+                expected = None
             try:
                 value = Decimal(
                         re.search(regex[attribute], pages[ship])\
                         .expand(r'\1').replace(',', ''))
             except AttributeError:
-                if not expected == 0.0:
+                if not expected == None:
                     print('{} attribute not found on ship {}'.format(attribute[1], ship))
                 continue
-            if not value == expected and abs(value - expected) > 1:
+            if not value == expected and abs(value - (expected or 0)) > 1:
                 print('For ship {} {} is {} but should be {}'\
                       .format(ship, attribute[1], value, expected))
     
