@@ -1,6 +1,7 @@
 from decimal import Decimal
 from os import path
 from time import sleep
+from urllib import quote
 import datetime
 import logging
 import re
@@ -52,20 +53,22 @@ def get_pages(pages, loc=path.join(path.dirname(__file__), 'wiki-pages'), downlo
         file_name = path.join(loc, page+'.txt')
         
         if path.isfile(file_name):
+            logger.debug('Found %s in cache', page)
             with open(file_name, 'r') as out:
                 output[page] = out.read()
         elif download:
+            url = 'http://wiki.eveuniversity.org/{}?action=raw'.format(quote(page))
+            logger.debug('Downloading %s at %s', url, next_run)
             while datetime.datetime.now() < next_run:
                 sleep(1)
             try:
-                response = urllib2.urlopen('http://wiki.eveuniversity.org/{}?action=raw'\
-                                           .format(page))
+                response = urllib2.urlopen(url)
             except urllib2.HTTPError as e:
                 if e.code == 404:
-                    logger.info('No page {}'.format(page))
+                    logger.info('No page %s', page)
                 else:
-                    logger.warning('Unknown error code {} for page {} response was {}'\
-                          .format(e.code, page, e.read()))
+                    logger.warning('Unknown error code %s for page %s response was %s',
+                          e.code, url, e.read())
                 continue
             finally:
                 next_run = datetime.datetime.now() + datetime.timedelta(seconds=30)
@@ -125,8 +128,8 @@ def main():
             try:
                 expected = Decimal(str(attribute[3](Decimal(ships[ship][attribute[0]]))))
             except KeyError:
-                logger.info('Ship {} has no value in db for {}'.format(ship, attribute[1]))
-                continue          
+                logger.debug('Ship %s has no value in db for %s', ship, attribute[1])
+                expected = Decimal(0)          
             try:
                 value = Decimal(
                         re.search(regex[attribute], pages[ship])\
@@ -136,8 +139,16 @@ def main():
                     print('{} attribute not found on ship {}'.format(attribute[1], ship))
                 continue
             if not value == expected and abs(value - expected) > 1:
-                print('For ship {} {} is {!r} but should be {!r}'\
+                print('For ship {} {} is {} but should be {}'\
                       .format(ship, attribute[1], value, expected))
     
 if __name__ == '__main__':
+    log = logging.getLogger()
+    log.setLevel(logging.DEBUG)
+    strm = logging.StreamHandler()
+    strm.setLevel(logging.INFO)
+    filelog = logging.FileHandler(path.join(path.dirname(__file__), 'log.txt'))
+    filelog.setLevel(logging.DEBUG)
+    log.addHandler(strm)
+    log.addHandler(filelog)
     main()
