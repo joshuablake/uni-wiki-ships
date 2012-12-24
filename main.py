@@ -7,6 +7,9 @@ import logging
 import re
 import sqlite3
 import urllib2
+import collections
+from argparse import ArgumentParser
+import sys
 logger = logging.getLogger(__name__)
 
 #Format (db name, wiki name,[ unit], [ transform])
@@ -114,7 +117,6 @@ def get_ships(attributes, db=path.join(path.dirname(__file__), 'eve.db')):
                 if i[4] in db_attrs:
                     phrase = 'Invalid value for {} on {} with value {}'.format(i[4], i[0], i[5] or i[6])
                     logger.warning(phrase)
-                    print phrase
     
     finally:
         db_conn.close()
@@ -122,6 +124,8 @@ def get_ships(attributes, db=path.join(path.dirname(__file__), 'eve.db')):
     return ships
 
 def check_values(pages, ships, attributes):
+    WrongAttr = collections.namedtuple('WrongAttr', ['attr', 'current', 'correct'])
+    wrong = collections.defaultdict(list)
     for ship in pages.keys():
         for attribute in attributes:
             logger.debug('Attribute: %s Ship: %s', attribute[0], ship)
@@ -136,17 +140,47 @@ def check_values(pages, ships, attributes):
                         .expand(r'\1').replace(',', ''))
             except AttributeError:
                 if not expected == None:
-                    print('{} attribute not found on ship {}'.format(attribute[1], ship))
+                    wrong[ship].append(WrongAttr(attribute[1], None, expected))
                 continue
             if not value == expected and abs(value - (expected or 0)) > 1:
-                print('For ship {} {} is {} but should be {}'\
-                      .format(ship, attribute[1], value, expected))
+                wrong[ship].append(WrongAttr(attribute[1], value, expected))
+    return wrong
+
+def format_text(wrong_attrs):
+    ret = []
+    for k in wrong_attrs:
+        for i in wrong_attrs[k]:
+            ret.append('{} has {} as {} but should be {}'\
+                  .format(k, i.attr, i.current, i.correct))
+    return '\n'.join(ret)
 
 def main():
+    parser = ArgumentParser(description='Find incorrect ships on wiki')
+    parser.add_argument('output_file', default='stdout', nargs='?')
+    parser.add_argument('-f', '--format', action='store', default='text')
+    parser.add_argument('-d', '--no-download', action='store_true')
+    args = parser.parse_args()
+    
+    try:
+        format_func = globals()['format_'+args.format]
+    except KeyError:
+        parser.error('Invalid format {} please choose from'.format(
+                        args.format,
+                        ', '.join([i for i in globals() if i.startswith('format_')]
+                    )))
+    if not path.isfile(args.output_file) and not args.output_file == 'stdout':
+        parser.error('Invalid file '+args.output_file)
+    
     attributes = parse_attributes(ATTRIBUTES)
     ships = get_ships(attributes)
-    pages = get_pages(ships.keys())
-    check_values(pages, ships, attributes)
+    pages = get_pages(ships.keys(), download=(not args.no_download))
+    
+    if args.output_file == 'stdout':
+        out_file = sys.stdout
+    else:
+        out_file = open(args.output_file, 'w')
+    with out_file as write:
+        write.write(format_func(check_values(pages, ships, attributes)))
     
 if __name__ == '__main__':
     log = logging.getLogger()
