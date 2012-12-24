@@ -1,18 +1,19 @@
 #!/usr/bin/env python
 from argparse import ArgumentParser
 from decimal import Decimal
+from io import BytesIO
 from os import path
 from time import sleep
 from urllib import quote
-from io import BytesIO
 import collections
+import csv
 import datetime
+import json
 import logging
 import re
 import sqlite3
 import sys
 import urllib2
-import csv
 logger = logging.getLogger(__name__)
 
 #Format (db name, wiki name,[ unit], [ transform])
@@ -60,6 +61,7 @@ def query_yes_no(question, default="yes"):
         an answer is required of the user).
 
     The "answer" return value is one of "yes" or "no".
+    
     """
     valid = {"yes":True,   "y":True,  "ye":True,
              "no":False,     "n":False}
@@ -87,35 +89,34 @@ def get_pages(pages,
               loc=path.join(path.dirname(__file__), 'cache'),
               download=True,
               pause=30):
+    #next_run in past so first run never delayed
     next_run = datetime.datetime.now() - datetime.timedelta(hours=1)
     output = {}
-    for page in pages:
-        file_name = path.join(loc, page+'.txt')
-        
-        if path.isfile(file_name):
-            logger.debug('Found %s in cache', page)
-            with open(file_name, 'r') as out:
-                output[page] = out.read()
-        elif download:
-            url = 'http://wiki.eveuniversity.org/{}?action=raw'.format(quote(page))
-            logger.debug('Downloading %s at %s', url, next_run)
-            while datetime.datetime.now() < next_run:
-                sleep(1)
+    to_download = pages
+    for i in range(0, len(to_download), 50):
+        url = 'http://wiki.eveuniversity.org/w/api.php?'\
+                'action=query&format=json&prop=revisions&rvprop=content&'\
+                'titles=' + '|'.join([quote(i) for i in to_download[i:i+50]])
+        logger.debug('Fetching from wiki: '+url)
+        while datetime.datetime.now() < next_run:
+            sleep(1)
+        try:
+            response = urllib2.urlopen(url)
+        except urllib2.HTTPError as e:
+            logger.warning('Error code %s for page %s response was %s',
+                      e.code, url, e.read())
+            continue
+        finally:
+            next_run = datetime.datetime.now() + datetime.timedelta(seconds=pause)
+        for page in json.load(response)['query']['pages'].values():
             try:
-                response = urllib2.urlopen(url)
-            except urllib2.HTTPError as e:
-                if e.code == 404:
-                    logger.info('No page %s', page)
+                content = page['revisions'][0]['*']
+            except KeyError:
+                if 'missing' in page:
+                    logger.info('No page %s', page['title'])
                 else:
-                    logger.warning('Unknown error code %s for page %s response was %s',
-                          e.code, url, e.read())
-                continue
-            finally:
-                next_run = datetime.datetime.now() + datetime.timedelta(seconds=pause)
-            content = response.read()
-            output[page] = content
-            with open(file_name, 'w') as out:
-                out.write(content)
+                    raise
+            output[page['title']] = content
     return output
 
 def parse_attributes(attributes):
@@ -158,6 +159,7 @@ def get_ships(attributes, db=path.join(path.dirname(__file__), 'eve.db')):
     finally:
         db_conn.close()
     
+    logger.debug('Ships fetched: %s', ships.keys())
     return ships
 
 def check_values(pages, ships, attributes):
@@ -209,7 +211,7 @@ def format_csv(wrong_attrs):
 def get_database(remote=REMOTE_DATABASE_LOC, local=path.join(path.dirname(__file__), 'eve.db')):
     from bz2 import decompress
     with open(local, 'wb') as local_file:
-       local_file.write(decompress(urllib2.urlopen(remote).read())) 
+        local_file.write(decompress(urllib2.urlopen(remote).read())) 
 
 def main():
     parser = ArgumentParser(description='Find incorrect ships on wiki')
@@ -220,10 +222,11 @@ def main():
     parser.add_argument('-d', '--no-download', action='store_true',
             help='Turn downloading from wiki off. (Only use cache)'
                         'Will greatly speed up script')
-    parser.add_argument('-p', '--pause', default=30, type=int,
+    parser.add_argument('-p', '--pause', default=15, type=int,
             help='Number of seconds to wait between requests to wiki. '
                  'Defaults to 30')
     args = parser.parse_args()
+    logger.debug('Args: %s', args)
     
     try:
         format_func = globals()['format_'+args.format]
@@ -263,6 +266,8 @@ if __name__ == '__main__':
     strm.setLevel(logging.INFO)
     filelog = logging.FileHandler(path.join(path.dirname(__file__), 'log.txt'))
     filelog.setLevel(logging.DEBUG)
+    filelog.setFormatter(logging.Formatter('%(asctime)s - %(levelname)s - %(message)s'))
     log.addHandler(strm)
     log.addHandler(filelog)
+    logger.debug('test')
     main()
