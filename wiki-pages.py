@@ -213,8 +213,8 @@ def get_database(remote=REMOTE_DATABASE_LOC, local=path.join(path.dirname(__file
 
 def main():
     parser = ArgumentParser(description='Find incorrect ships on wiki')
-    parser.add_argument('output_file', default='stdout', nargs='?',
-            help='File to save output to, by default printed to stdout')
+    parser.add_argument('output_file', default='stdout', 
+            help='File to save output to, use "stdout" to print to screen')
     parser.add_argument('-f', '--format', action='store', default='text',
             help='Format for the output')
     parser.add_argument('-d', '--no-download', action='store_true',
