@@ -17,9 +17,6 @@ logger = logging.getLogger(__name__)
 
 #Format (db name, wiki name,[ unit], [ transform])
 #TODO: warp speed
-def resist(x):
-    return 1 - x
-
 ATTRIBUTES = (
 ['powerOutput', 'powergrid', ' MW',],
 ['cpuOutput', 'cpu', ' tf',],
