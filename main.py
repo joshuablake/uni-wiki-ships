@@ -1,15 +1,17 @@
+from argparse import ArgumentParser
 from decimal import Decimal
 from os import path
 from time import sleep
 from urllib import quote
+from io import BytesIO
+import collections
 import datetime
 import logging
 import re
 import sqlite3
-import urllib2
-import collections
-from argparse import ArgumentParser
 import sys
+import urllib2
+import csv
 logger = logging.getLogger(__name__)
 
 #Format (db name, wiki name,[ unit], [ transform])
@@ -49,7 +51,9 @@ ATTRIBUTES = (
 ['scanResolution', 'scanres', ' mm',],
 )
 
-def get_pages(pages, loc=path.join(path.dirname(__file__), 'wiki-pages'), download=True):
+def get_pages(pages,
+              loc=path.join(path.dirname(__file__), 'wiki-pages'),
+              download=True):
     next_run = datetime.datetime.now() - datetime.timedelta(hours=1)
     output = {}
     for page in pages:
@@ -154,6 +158,21 @@ def format_text(wrong_attrs):
                   .format(k, i.attr, i.current, i.correct))
     return '\n'.join(ret)
 
+def format_csv(wrong_attrs):
+    string = BytesIO()
+    writer = csv.writer(string)
+    writer.writerow(['Ship', 'Attribute', 'Current Value', 'Correct Value',
+                     'Link'])
+    for k in wrong_attrs:
+        for i in wrong_attrs[k]:
+            row = [k, i.attr, i.current, i.correct,
+                   'http://wiki.eveuniversity.org/'+quote(k)]
+            logger.debug('Row: '+', '.join(str(i) for i in row))
+            writer.writerow(row)
+    ret = string.getvalue()
+    string.close()
+    return ret
+
 def main():
     parser = ArgumentParser(description='Find incorrect ships on wiki')
     parser.add_argument('output_file', default='stdout', nargs='?')
@@ -166,10 +185,9 @@ def main():
     except KeyError:
         parser.error('Invalid format {} please choose from'.format(
                         args.format,
-                        ', '.join([i for i in globals() if i.startswith('format_')]
+                        ', '.join([i for i in globals()
+                                   if i.startswith('format_')]
                     )))
-    if not path.isfile(args.output_file) and not args.output_file == 'stdout':
-        parser.error('Invalid file '+args.output_file)
     
     attributes = parse_attributes(ATTRIBUTES)
     ships = get_ships(attributes)
@@ -178,7 +196,10 @@ def main():
     if args.output_file == 'stdout':
         out_file = sys.stdout
     else:
-        out_file = open(args.output_file, 'w')
+        try:
+            out_file = open(args.output_file, 'wb')
+        except IOError:
+            parser.error('Invalid file '+args.output_file)
     with out_file as write:
         write.write(format_func(check_values(pages, ships, attributes)))
     
