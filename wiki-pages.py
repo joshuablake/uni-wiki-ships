@@ -54,7 +54,8 @@ ATTRIBUTES = (
 
 def get_pages(pages,
               loc=path.join(path.dirname(__file__), 'wiki-pages'),
-              download=True):
+              download=True,
+              pause=30):
     next_run = datetime.datetime.now() - datetime.timedelta(hours=1)
     output = {}
     for page in pages:
@@ -79,7 +80,7 @@ def get_pages(pages,
                           e.code, url, e.read())
                 continue
             finally:
-                next_run = datetime.datetime.now() + datetime.timedelta(seconds=30)
+                next_run = datetime.datetime.now() + datetime.timedelta(seconds=pause)
             content = response.read()
             output[page] = content
             with open(file_name, 'w') as out:
@@ -174,11 +175,21 @@ def format_csv(wrong_attrs):
     string.close()
     return ret
 
+def get_database(loc):
+    pass
+
 def main():
     parser = ArgumentParser(description='Find incorrect ships on wiki')
-    parser.add_argument('output_file', default='stdout', nargs='?')
-    parser.add_argument('-f', '--format', action='store', default='text')
-    parser.add_argument('-d', '--no-download', action='store_true')
+    parser.add_argument('output_file', default='stdout', nargs='?',
+            help='File to save output to, by default printed to stdout')
+    parser.add_argument('-f', '--format', action='store', default='text',
+            help='Format for the output')
+    parser.add_argument('-d', '--no-download', action='store_true',
+            help='Turn downloading from wiki off. (Only use cache)'
+                        'Will greatly speed up script')
+    parser.add_argument('-p', '--pause', default=30, type=int,
+            help='Number of seconds to wait between requests to wiki. '
+                 'Defaults to 30')
     args = parser.parse_args()
     
     try:
