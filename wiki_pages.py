@@ -1,4 +1,20 @@
 #!/usr/bin/env python
+"""Compare E-Uni's Wiki to the CCP SDE
+
+Usage:
+    python wiki_pages.py [options] OUTPUT
+
+Argument OUTPUT:
+    Either a file or stdout to print to screen
+    
+Options:
+    -h, --help             Print help message and exit
+    -f, --format [FORMAT]  Select the format. May be any function starting 'format_'
+    -p, --pause  [TIME]    Time in secssto pause between queries to wiki.
+                            Defaults to 10.
+
+"""
+
 from argparse import ArgumentParser
 from decimal import Decimal
 from io import BytesIO
@@ -16,7 +32,6 @@ import sys
 import urllib2
 logger = logging.getLogger(__name__)
 
-#Format (db name, wiki name,[ unit], [ transform])
 #TODO: warp speed
 ATTRIBUTES = (
 ['powerOutput', 'powergrid', ' MW',],
@@ -49,8 +64,18 @@ ATTRIBUTES = (
 ['armorThermalDamageResonance', 'armortherm', '', lambda x: (1-x)*100,],
 ['scanResolution', 'scanres', ' mm',],
 )
+"""Attributes to look for
+
+This is a tuple of lists in the following format: [db_name, wiki_name, unit, function]
+    db_name: the column name in the static dump
+    wiki_name: name the column has on the wiki
+    unit (optional): unit that this value is given in (should start with space)
+    function (optional): a function that this attribute will be run through
+
+"""
 
 REMOTE_DATABASE_LOC = 'http://www.fuzzwork.co.uk/dump/retribution-1.0.7-463858/eve.sqlite.bz2'
+"""Location of static dump"""
 
 def query_yes_no(question, default="yes"):
     """Ask a yes/no question via raw_input() and return their answer.
@@ -85,10 +110,16 @@ def query_yes_no(question, default="yes"):
             sys.stdout.write("Please respond with 'yes' or 'no' "\
                              "(or 'y' or 'n').\n")
 
-def get_pages(pages,
-              loc=path.join(path.dirname(__file__), 'cache'),
-              download=True,
-              pause=30):
+def get_pages(pages, pause=30):
+    """Get pages from wiki in raw wikitext format
+    
+    Args:
+        pages (list): pages to get
+        pause (int): seconds to pause between queries to wiki
+    Returns:
+        (dict): format of {page: content}
+    
+    """
     #next_run in past so first run never delayed
     next_run = datetime.datetime.now() - datetime.timedelta(hours=1)
     output = {}
@@ -120,6 +151,16 @@ def get_pages(pages,
     return output
 
 def parse_attributes(attributes):
+    """Parse and normalise an attribute list
+    
+    Args:
+        attributes (list): format as ATTRIBUTES global
+    Returns:
+        list of format: [wiki_name, page_name, regex, function]
+            regex: a compiled regex to extract the value of the attribute from
+                    wikitext
+    
+    """
     parsed = []
     for attr in attributes:
         try:
@@ -134,8 +175,16 @@ def parse_attributes(attributes):
         parsed.append((attr[0], attr[1], regex, function))
     return parsed 
 
-def get_ships(attributes, db=path.join(path.dirname(__file__), 'eve.db')):
-    db_attrs = [i[0] for i in attributes]
+def get_ships(db_attrs, db=path.join(path.dirname(__file__), 'eve.db')):
+    """Extract ship attributes from database
+    
+    Args:
+        db_attrs (list): valid attributes to return
+        db (str): path to database
+    Returns:
+        (dict): format of {ship_name: {attribute_name: value}}
+        
+    """
     try:
         db_conn = sqlite3.connect(db)
         db_ships = db_conn.execute(
@@ -163,6 +212,18 @@ def get_ships(attributes, db=path.join(path.dirname(__file__), 'eve.db')):
     return ships
 
 def check_values(pages, ships, attributes):
+    """Check the value for attributes on a ship wikipage
+    
+    Args:
+        pages (dict): {ship_name: page_content} in wikitext
+        ships (dict): {ship_name: {attribute_name: value}} for expected values
+        attributes (list): list of attributes
+    Returns:
+        (dict): {ship_name: WrongAttr_tuple}
+            WrongAttr_tuple: a named tuple with
+                (attribute_name, current_value, correct_value)
+        
+    """
     WrongAttr = collections.namedtuple('WrongAttr', ['attr', 'current', 'correct'])
     wrong = collections.defaultdict(list)
     for ship in pages.keys():
@@ -219,9 +280,6 @@ def main():
             help='File to save output to, use "stdout" to print to screen')
     parser.add_argument('-f', '--format', action='store', default='text',
             help='Format for the output')
-    parser.add_argument('-d', '--no-download', action='store_true',
-            help='Turn downloading from wiki off. (Only use cache)'
-                        'Will greatly speed up script')
     parser.add_argument('-p', '--pause', default=15, type=int,
             help='Number of seconds to wait between requests to wiki. '
                  'Defaults to 30')
@@ -239,7 +297,7 @@ def main():
     
     attributes = parse_attributes(ATTRIBUTES)
     try:
-        ships = get_ships(attributes)
+        ships = get_ships([i[0] for i in attributes])
     except sqlite3.Error:
         if not query_yes_no('No valid local database, '
                             'should it be downloaded (~100mb file)?'):
@@ -247,7 +305,7 @@ def main():
         get_database(REMOTE_DATABASE_LOC)
         parser.exit('Done!')
         
-    pages = get_pages(ships.keys(), download=(not args.no_download))
+    pages = get_pages(ships.keys())
     
     if args.output_file == 'stdout':
         out_file = sys.stdout
