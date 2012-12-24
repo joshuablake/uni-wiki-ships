@@ -52,8 +52,42 @@ ATTRIBUTES = (
 ['scanResolution', 'scanres', ' mm',],
 )
 
+REMOTE_DATABASE_LOC = 'http://www.fuzzwork.co.uk/dump/retribution-1.0.7-463858/eve.sqlite.bz2'
+
+def query_yes_no(question, default="yes"):
+    """Ask a yes/no question via raw_input() and return their answer.
+
+    "question" is a string that is presented to the user.
+    "default" is the presumed answer if the user just hits <Enter>.
+        It must be "yes" (the default), "no" or None (meaning
+        an answer is required of the user).
+
+    The "answer" return value is one of "yes" or "no".
+    """
+    valid = {"yes":True,   "y":True,  "ye":True,
+             "no":False,     "n":False}
+    if default == None:
+        prompt = " [y/n] "
+    elif default == "yes":
+        prompt = " [Y/n] "
+    elif default == "no":
+        prompt = " [y/N] "
+    else:
+        raise ValueError("invalid default answer: '%s'" % default)
+
+    while True:
+        sys.stdout.write(question + prompt)
+        choice = raw_input().lower()
+        if default is not None and choice == '':
+            return valid[default]
+        elif choice in valid:
+            return valid[choice]
+        else:
+            sys.stdout.write("Please respond with 'yes' or 'no' "\
+                             "(or 'y' or 'n').\n")
+
 def get_pages(pages,
-              loc=path.join(path.dirname(__file__), 'wiki-pages'),
+              loc=path.join(path.dirname(__file__), 'cache'),
               download=True,
               pause=30):
     next_run = datetime.datetime.now() - datetime.timedelta(hours=1)
@@ -175,8 +209,10 @@ def format_csv(wrong_attrs):
     string.close()
     return ret
 
-def get_database(loc):
-    pass
+def get_database(remote=REMOTE_DATABASE_LOC, local=path.join(path.dirname(__file__), 'eve.db')):
+    from bz2 import decompress
+    with open(local, 'wb') as local_file:
+       local_file.write(decompress(urllib2.urlopen(remote).read())) 
 
 def main():
     parser = ArgumentParser(description='Find incorrect ships on wiki')
@@ -202,7 +238,15 @@ def main():
                     )))
     
     attributes = parse_attributes(ATTRIBUTES)
-    ships = get_ships(attributes)
+    try:
+        ships = get_ships(attributes)
+    except sqlite3.Error:
+        if not query_yes_no('No valid local database, '
+                            'should it be downloaded (~100mb file)?'):
+            parser.exit()
+        get_database(REMOTE_DATABASE_LOC)
+        parser.exit('Done!')
+        
     pages = get_pages(ships.keys(), download=(not args.no_download))
     
     if args.output_file == 'stdout':
