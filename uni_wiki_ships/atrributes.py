@@ -4,7 +4,7 @@ import logging
 import re
 logger = logging.getLogger(__name__)
 
-class NotPresent(AppException): pass
+class NotPresentError(AppException): pass
 
 class Attribute(object):
     """An attribute
@@ -20,30 +20,41 @@ class Attribute(object):
         Args:
             db_name (str): the name in the database
             wiki_name (str): the name on the wiki
-            unit (str): the unit this attribute is measured in
+            unit (str): the unit this attribute is measured in. not currently used
             function (callable): a function that accepts the value from db as an
                                     argument and returns the wikified value
                                     
         """
-        # units either have to be blank or start with spaces
-        if not unit.startswith(' ') and unit:
-            unit = ' ' + unit 
+        self.function = function
+        self.name = wiki_name
         self.regex = re.compile(r'''
             \|         #section starts with |
             {}         #followed by the wiki name
             =          #then an equals
             ([\d,\.]+) #allow numbers, thousand seperator and decimal points'''\
-            .format(wiki_name), re.X)
-        self.function = function
-        self.name = wiki_name
-        attributes[db_name] = self 
+            .format(self.name), re.X)
+        self.db_name = db_name
+        attributes.append(self)
         logger.debug('Created attribute %s', self)
         
     def __str__(self):
         return self.name
+    
+    def process(self, values):
+        """Process a db values into a wiki value
         
-    def process(self, value):
-        """Process a db value into a wiki value"""
+        Args:
+            values (dict): the db values for a ship {db_name: value}
+        Returns:
+            (decimal): the correct value for this attribute
+        Throws:
+            NotPresentError: no db value for this attribute
+            
+        """
+        try:
+            value = values[self.db_name]
+        except KeyError:
+            raise NotPresentError('No value given for %s', self)
         return Decimal(self.function(Decimal(str(value))))
     
     def extract(self, page):
@@ -54,7 +65,7 @@ class Attribute(object):
         Returns:
             (decimal): the value on the page
         Throws:
-            NotPresent: there is no value for this attribute on the page
+            NotPresentError: there is no value for this attribute on the page
             
         """
         try: 
@@ -62,8 +73,20 @@ class Attribute(object):
                     self.regex.search(page)\
                     .expand(r'\1').replace(',', ''))
         except AttributeError:
-            raise NotPresent('No value for ' + str(self))  
+            raise NotPresentError('No value for ' + str(self))  
     
+class SensorStrength(Attribute):
+    """Special case for sensor strength"""
+   
+    def __init__(self):
+        """Call parent with correct values"""
+        super(SensorStrength, self).__init__('', 'sensorvalue', 'points')
+    
+    def process(self, values):
+        types = ['Ladar', 'Radar', 'Magnetometric', 'Gravimetric']
+        return [values[i] for i in types
+                if values['scan{}Strength'.format(i) > 0]][0]
+        
 CONFIG = (
     ('powerOutput', 'powergrid', ' MW',),
     ('cpuOutput', 'cpu', ' tf',),
@@ -95,6 +118,6 @@ CONFIG = (
     ('armorThermalDamageResonance', 'armortherm', '', lambda x: (1 - x) * 100,),
     ('scanResolution', 'scanres', ' mm',),
 )
-attributes = {}
+attributes = []
 for i in CONFIG:
     Attribute(*i)

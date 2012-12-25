@@ -21,7 +21,7 @@ from io import BytesIO
 from os import path
 from time import sleep
 from urllib import quote
-from atrributes import attributes, NotPresent
+from atrributes import attributes, NotPresentError
 import collections
 import csv
 import datetime
@@ -110,7 +110,7 @@ def get_pages(to_download, pause):
             output[page['title']] = content
     return output, missing
 
-def get_ships(db_attrs, db=path.join(path.dirname(__file__), 'eve.db')):
+def get_ships(db=path.join(path.dirname(__file__), 'eve.db')):
     """Extract ship attributes from database
     
     Args:
@@ -136,9 +136,8 @@ def get_ships(db_attrs, db=path.join(path.dirname(__file__), 'eve.db')):
             try:
                 ships[i[0]][i[4]] = Decimal(str(i[5] or i[6] or 0))
             except TypeError:
-                if i[4] in db_attrs:
-                    phrase = 'Invalid value for {} on {} with value {}'.format(i[4], i[0], i[5] or i[6])
-                    logger.warning(phrase)
+                phrase = 'Invalid value for {} on {} with value {}'.format(i[4], i[0], i[5] or i[6])
+                logger.warning(phrase)
     
     finally:
         db_conn.close()
@@ -162,15 +161,15 @@ def check_values(pages, ships, attributes):
     WrongAttr = collections.namedtuple('WrongAttr', ['attr', 'current', 'correct'])
     wrong = collections.defaultdict(list)
     for ship, page in pages.iteritems():
-        for db_name, attribute in attributes.iteritems():
+        for attribute in attributes:
             try:
-                expected = attribute.process(ships[ship][db_name])
-            except KeyError:
+                expected = attribute.process(ships[ship])
+            except NotPresentError:
                 logger.debug('Ship %s has no value in db for %s', ship, attribute)
                 expected = None
             try:
                 value = attribute.extract(page)
-            except NotPresent:
+            except NotPresentError:
                 logger.info('%s has no value for %s', ship, attribute)
                 if not expected == None:
                     wrong[ship].append(WrongAttr(attribute.name, None, expected))
@@ -238,7 +237,7 @@ def main():
                     )))
     
     try:
-        ships = get_ships(attributes.keys())
+        ships = get_ships()
     except sqlite3.Error:
         if not query_yes_no('No valid local database, '
                             'should it be downloaded (~100mb file)?'):
