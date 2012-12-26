@@ -1,8 +1,11 @@
 from atrributes import attributes, NotPresentError
+from io import BytesIO
+from urllib import quote
 import collections
+import csv
+import inspect
 import logging
 import sys
-import inspect
 logger = logging.getLogger(__name__)
 
 def available():
@@ -60,7 +63,7 @@ class _Formatter(object):
         """Take incorrect attributes and output in correct format"""
         raise NotImplementedError()
     
-    def ouput(self, string, location):
+    def output(self, string, location):
         """Take formatted string and dump to location"""
         if location == 'stdout':
             out_file = sys.stdout
@@ -69,5 +72,39 @@ class _Formatter(object):
         with out_file as write:
             write.write(string)
             
+class Text(_Formatter):
+    def format(self, wrong_attrs, missing_pages):
+        """Format as a human-readable text string"""
+        ret = []
+        for k in wrong_attrs:
+            for i in wrong_attrs[k]:
+                ret.append('{} has {} as {} but should be {}'\
+                      .format(k, i.attr, i.current, i.correct))
+        ret.append(', '.join(missing_pages) + 'are missing from wiki')
+        return '\n'.join(ret)    
+    
+class Csv(_Formatter):
+    def format(self, wrong_attrs, missing_pages):
+        """Format as CSV"""
+        string = BytesIO()
+        writer = csv.writer(string)
+        writer.writerow(['Ship', 'Attribute', 'Current Value', 'Correct Value',
+                         'Link'])
+        for k in wrong_attrs:
+            for i in wrong_attrs[k]:
+                row = (k, i.attr, i.current, i.correct,
+                       'http://wiki.eveuniversity.org/'+quote(k))
+                logger.debug('Row: '+', '.join(str(i) for i in row))
+                writer.writerow(row)
+        for i in missing_pages:
+            row = (i, 'Missing page', None, None,
+                   'http://wiki.eveuniversity.org/'+quote(i))
+            logger.debug('Row: '+', '.join(str(i) for i in row))
+            writer.writerow(row)
+        ret = string.getvalue()
+        string.close()
+        return ret
+
+    
 if __name__ == '__main__':
     print('\n'.join(available()))

@@ -17,20 +17,16 @@ Options:
 
 from argparse import ArgumentParser
 from decimal import Decimal
-from io import BytesIO
 from os import path
 from time import sleep
 from urllib import quote
-from atrributes import NotPresentError
-import collections
-import csv
 import datetime
+import formatters
 import json
 import logging
 import sqlite3
 import sys
 import urllib2
-import formatters
 logger = logging.getLogger(__name__)
 
 REMOTE_DATABASE_LOC = 'http://www.fuzzwork.co.uk/dump/retribution-1.0.7-463858/eve.sqlite.bz2'
@@ -130,7 +126,8 @@ def get_ships(db=path.join(path.dirname(__file__), 'eve.db')):
             'INNER JOIN dgmTypeAttributes attTypes ON attTypes.typeID = types.typeID '
             'INNER JOIN dgmAttributeTypes attributes ON attributes.attributeID = attTypes.attributeID '
             'INNER JOIN invGroups ON types.groupID = invGroups.groupID '
-            'WHERE invGroups.categoryID = 6 AND types.published = 1 ')
+            'WHERE invGroups.categoryID = 6 AND types.published = 1 '
+            'AND types.typeName = "Skiff"')
         ships = {}
         for i in db_ships:
             ships[i[0]] = ships.get(i[0], {'mass':i[1], 'capacity':i[2], 'volume':i[3]})
@@ -145,35 +142,6 @@ def get_ships(db=path.join(path.dirname(__file__), 'eve.db')):
     
     logger.debug('Ships fetched: %s', ships.keys())
     return ships
-
-def format_text(wrong_attrs, missing_pages):
-    ret = []
-    for k in wrong_attrs:
-        for i in wrong_attrs[k]:
-            ret.append('{} has {} as {} but should be {}'\
-                  .format(k, i.attr, i.current, i.correct))
-    ret.append(', '.join(missing_pages) + 'are missing from wiki')
-    return '\n'.join(ret)
-
-def format_csv(wrong_attrs, missing_pages):
-    string = BytesIO()
-    writer = csv.writer(string)
-    writer.writerow(['Ship', 'Attribute', 'Current Value', 'Correct Value',
-                     'Link'])
-    for k in wrong_attrs:
-        for i in wrong_attrs[k]:
-            row = (k, i.attr, i.current, i.correct,
-                   'http://wiki.eveuniversity.org/'+quote(k))
-            logger.debug('Row: '+', '.join(str(i) for i in row))
-            writer.writerow(row)
-    for i in missing_pages:
-        row = (i, 'Missing page', None, None,
-               'http://wiki.eveuniversity.org/'+quote(i))
-        logger.debug('Row: '+', '.join(str(i) for i in row))
-        writer.writerow(row)
-    ret = string.getvalue()
-    string.close()
-    return ret
 
 def get_database(remote=REMOTE_DATABASE_LOC, local=path.join(path.dirname(__file__), 'eve.db')):
     from bz2 import decompress
@@ -197,8 +165,8 @@ def main():
     logger.debug('Args: %s', args)
     
     try:
-        formatter = getattr(formatters, args.format)()
-    except KeyError:
+        formatter = getattr(formatters, args.format.capitalize())()
+    except AttributeError:
         invalid_format(parser)
         
     try:
@@ -213,7 +181,7 @@ def main():
     pages, missing_pages = get_pages(ships.keys(), args.pause)
     
     try:
-        formatter(pages, ships, missing_pages, parser.output_file)
+        formatter(pages, ships, missing_pages, args.output_file)
     except EnvironmentError as e:
         try:
             filename = e.filename
