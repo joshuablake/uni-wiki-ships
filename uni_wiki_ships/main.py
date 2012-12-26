@@ -21,7 +21,7 @@ from io import BytesIO
 from os import path
 from time import sleep
 from urllib import quote
-from atrributes import attributes, NotPresentError
+from atrributes import NotPresentError
 import collections
 import csv
 import datetime
@@ -30,6 +30,7 @@ import logging
 import sqlite3
 import sys
 import urllib2
+import formatters
 logger = logging.getLogger(__name__)
 
 REMOTE_DATABASE_LOC = 'http://www.fuzzwork.co.uk/dump/retribution-1.0.7-463858/eve.sqlite.bz2'
@@ -145,42 +146,6 @@ def get_ships(db=path.join(path.dirname(__file__), 'eve.db')):
     logger.debug('Ships fetched: %s', ships.keys())
     return ships
 
-def check_values(pages, ships, attributes):
-    """Check the value for attributes on a ship wikipage
-    
-    Args:
-        pages (dict): {ship_name: page_content} in wikitext
-        ships (dict): {ship_name: {attribute_name: value}} for expected values
-        attributes (list): list of attributes
-    Returns:
-        (dict): {ship_name: WrongAttr_tuple}
-            WrongAttr_tuple: a named tuple with
-                (attribute_name, current_value, correct_value)
-        
-    """
-    WrongAttr = collections.namedtuple('WrongAttr', ['attr', 'current', 'correct'])
-    wrong = collections.defaultdict(list)
-    for ship, page in pages.iteritems():
-        for attribute in attributes:
-            try:
-                expected = attribute.process(ships[ship])
-            except NotPresentError:
-                logger.debug('Ship %s has no value in db for %s', ship, attribute)
-                expected = None
-            try:
-                value = attribute.extract(page)
-            except NotPresentError:
-                logger.info('%s has no value for %s', ship, attribute)
-                if not expected == None:
-                    wrong[ship].append(WrongAttr(attribute.name, None, expected))
-                continue
-            if not value == expected and abs(value - (expected or 0)) > 1:
-                logger.info('%s has incorrect value for %s', ship, attribute)
-                wrong[ship].append(WrongAttr(attribute.name, value, expected))
-            else:
-                logger.debug('%s has correct value for %s', ship, attribute)
-    return wrong
-
 def format_text(wrong_attrs, missing_pages):
     ret = []
     for k in wrong_attrs:
@@ -214,6 +179,10 @@ def get_database(remote=REMOTE_DATABASE_LOC, local=path.join(path.dirname(__file
     from bz2 import decompress
     with open(local, 'wb') as local_file:
         local_file.write(decompress(urllib2.urlopen(remote).read())) 
+        
+def invalid_format(parser):
+    parser.error('Invalid format please choose from {}'\
+                  .format(', '.join([i for i in formatters.available()])))
 
 def main():
     parser = ArgumentParser(description='Find incorrect ships on wiki')
@@ -228,14 +197,10 @@ def main():
     logger.debug('Args: %s', args)
     
     try:
-        format_func = globals()['format_'+args.format]
+        formatter = getattr(formatters, args.format)()
     except KeyError:
-        parser.error('Invalid format {} please choose from'.format(
-                        args.format,
-                        ', '.join([i for i in globals()
-                                   if i.startswith('format_')]
-                    )))
-    
+        invalid_format(parser)
+        
     try:
         ships = get_ships()
     except sqlite3.Error:
@@ -247,15 +212,17 @@ def main():
         
     pages, missing_pages = get_pages(ships.keys(), args.pause)
     
-    if args.output_file == 'stdout':
-        out_file = sys.stdout
-    else:
+    try:
+        formatter(pages, ships, missing_pages, parser.output_file)
+    except EnvironmentError as e:
         try:
-            out_file = open(args.output_file, 'wb')
-        except IOError:
-            parser.error('Invalid file '+args.output_file)
-    with out_file as write:
-        write.write(format_func(check_values(pages, ships, attributes), missing_pages))
+            filename = e.filename
+        except AttributeError:
+            filename = parser.output_file
+        parser.error('Error accessing file {}: {}'.format(filename, e.strerror))
+        
+    except NotImplementedError:
+        invalid_format(parser)
     
 if __name__ == '__main__':
     log = logging.getLogger()
