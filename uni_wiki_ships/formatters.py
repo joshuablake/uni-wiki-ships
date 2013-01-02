@@ -1,6 +1,6 @@
-from atrributes import attributes, NotPresentError
 from io import BytesIO
 from urllib import quote
+import attributes
 import collections
 import csv
 import inspect
@@ -18,7 +18,7 @@ class _Formatter(object):
     def __call__(self, pages, ships, missing_pages, output_loc):
         self.output(
             self.format(
-                self.check(pages, ships, attributes), missing_pages
+                self.check(pages, ships, attributes.attributes), missing_pages
             ),
             output_loc
         )
@@ -42,12 +42,12 @@ class _Formatter(object):
             for attribute in attributes:
                 try:
                     expected = attribute.process(ships[ship])
-                except NotPresentError:
+                except attributes.NotPresentError:
                     logger.debug('Ship %s has no value in db for %s', ship, attribute)
                     expected = None
                 try:
                     value = attribute.extract(page)
-                except NotPresentError:
+                except attributes.NotPresentError:
                     logger.info('%s has no value for %s', ship, attribute)
                     if not expected == None:
                         wrong[ship].append(WrongAttr(attribute.name, None, expected))
