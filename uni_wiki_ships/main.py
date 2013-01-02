@@ -126,8 +126,7 @@ def get_ships(db=path.join(path.dirname(__file__), 'eve.db')):
             'INNER JOIN dgmTypeAttributes attTypes ON attTypes.typeID = types.typeID '
             'INNER JOIN dgmAttributeTypes attributes ON attributes.attributeID = attTypes.attributeID '
             'INNER JOIN invGroups ON types.groupID = invGroups.groupID '
-            'WHERE invGroups.categoryID = 6 AND types.published = 1 '
-            'AND types.typeName = "Skiff"')
+            'WHERE invGroups.categoryID = 6 AND types.published = 1 ')
         ships = {}
         for i in db_ships:
             ships[i[0]] = ships.get(i[0], {'mass':i[1], 'capacity':i[2], 'volume':i[3]})
