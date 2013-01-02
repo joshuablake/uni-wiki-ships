@@ -6,7 +6,7 @@ Compares the E-Uni `ship database` to the CCP Static Dump
 
 Installation
 =============
-First, install `_Python 2.7`_
+First, install `Python 2.7`_
 .. _Python 2.7: http://www.python.org/download/
 
 Clone the git project::
