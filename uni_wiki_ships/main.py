@@ -160,12 +160,12 @@ def main():
     filelog.setFormatter(logging.Formatter('%(asctime)s - %(levelname)s - %(message)s'))
     log.addHandler(filelog)
     
-    parser = ArgumentParser(description='Find incorrect ships on wiki')
+    parser = ArgumentParser(description='Find incorrect ships on wiki', prog="wikiships")
     parser.add_argument('output_file', default='stdout', 
             help='File to save output to, use "stdout" to print to screen')
     parser.add_argument('-f', '--format', action='store', default='text',
             help='Format for the output')
-    parser.add_argument('-p', '--pause', default=15, type=int,
+    parser.add_argument('-p', '--pause', default=30, type=int,
             help='Number of seconds to wait between requests to wiki. '
                  'Defaults to 30', action='store')
     args = parser.parse_args()
