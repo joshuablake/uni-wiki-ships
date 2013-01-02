@@ -153,6 +153,13 @@ def invalid_format(parser):
                   .format(', '.join([i for i in formatters.available()])))
 
 def main():
+    log = logging.getLogger()
+    log.setLevel(logging.DEBUG)
+    filelog = logging.FileHandler(path.join(path.dirname(__file__), 'log.txt'))
+    filelog.setLevel(logging.DEBUG)
+    filelog.setFormatter(logging.Formatter('%(asctime)s - %(levelname)s - %(message)s'))
+    log.addHandler(filelog)
+    
     parser = ArgumentParser(description='Find incorrect ships on wiki')
     parser.add_argument('output_file', default='stdout', 
             help='File to save output to, use "stdout" to print to screen')
@@ -193,10 +200,4 @@ def main():
         invalid_format(parser)
     
 if __name__ == '__main__':
-    log = logging.getLogger()
-    log.setLevel(logging.DEBUG)
-    filelog = logging.FileHandler(path.join(path.dirname(__file__), 'log.txt'))
-    filelog.setLevel(logging.DEBUG)
-    filelog.setFormatter(logging.Formatter('%(asctime)s - %(levelname)s - %(message)s'))
-    log.addHandler(filelog)
     main()
