@@ -1,12 +1,13 @@
 =================
 E-Uni Wiki Ships
 =================
-Compares the .. _E-Uni ship database: http://wiki.eveuniversity.org/Category:Ship_Database
-to the CCP Static Dump
+Compares the E-Uni `ship database` to the CCP Static Dump
+.. _ship database: http://wiki.eveuniversity.org/Category:Ship_Database
 
 Installation
 =============
-First, install .. _Python 2.7: http://www.python.org/download/
+First, install `_Python 2.7`_
+.. _Python 2.7: http://www.python.org/download/
 
 Clone the git project::
 	git clone git://github.com/joshuablake/uni-wiki-ships.git
