@@ -18,12 +18,12 @@ class _Formatter(object):
     def __call__(self, pages, ships, missing_pages, output_loc):
         self.output(
             self.format(
-                self.check(pages, ships, attributes.attributes), missing_pages
+                self.check(pages, ships), missing_pages
             ),
             output_loc
         )
        
-    def check(self, pages, ships, attributes):
+    def check(self, pages, ships):
         """Check the value for attributes on a ship wikipage
         
         Args:
@@ -39,7 +39,7 @@ class _Formatter(object):
         WrongAttr = collections.namedtuple('WrongAttr', ['attr', 'current', 'correct'])
         wrong = collections.defaultdict(list)
         for ship, page in pages.iteritems():
-            for attribute in attributes:
+            for attribute in attributes.attributes:
                 try:
                     expected = attribute.process(ships[ship])
                 except attributes.NotPresentError:
