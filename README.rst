@@ -1,8 +1,8 @@
 =================
 E-Uni Wiki Ships
 =================
-Compares the E-Uni `ship database <http://wiki.eveuniversity.org/Category:Ship_Database>
-`_ to the CCP Static Dump
+Compares the E-Uni `ship database <http://wiki.eveuniversity.org/Category:Ship_Database>`_
+to the CCP Static Dump.
 
 Installation
 =============
