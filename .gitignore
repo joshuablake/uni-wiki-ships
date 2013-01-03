@@ -2,3 +2,4 @@
 *.db
 *.txt
 *.csv
+*.egg-info/*

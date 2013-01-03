@@ -14,7 +14,7 @@ setup(
       
       author="Joshua Blake",
       author_email="joshbblake@gmail.com",
-      description="This is an Example Package",
+      description="This package works out problems with E-Uni's Ship Database",
       license="BSD",
       keywords="hello world example examples",
       url="https://github.com/joshuablake/uni-wiki-ships",
