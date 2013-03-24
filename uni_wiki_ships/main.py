@@ -29,7 +29,7 @@ import sys
 import urllib2
 logger = logging.getLogger(__name__)
 
-REMOTE_DATABASE_LOC = 'http://www.fuzzwork.co.uk/dump/retribution-1.0.7-463858/eve.sqlite.bz2'
+REMOTE_DATABASE_LOC = 'http://www.fuzzwork.co.uk/dump/retribution-1.1-84566/eve.db.bz2'
 """Location of static dump"""
 
 def query_yes_no(question, default="yes"):
