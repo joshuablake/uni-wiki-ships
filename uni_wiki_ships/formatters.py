@@ -20,13 +20,13 @@ def available():
 class _Formatter(object):
     """Format the results"""
     
+    MULTIPLE_FILES = False
+    FILE_EXT = '.txt'
+    
     def __call__(self, pages, ships, missing_pages, output_loc):
         self.pages = pages
-        self.output(
-            self.format(
-                self.check(pages, ships), missing_pages
-            ),
-            output_loc
+        return self.format(
+            self.check(pages, ships), missing_pages
         )
        
     def check(self, pages, ships):
@@ -90,6 +90,7 @@ class Text(_Formatter):
         return '\n'.join(ret)    
     
 class Csv(_Formatter):
+    FILE_EXT = '.csv'
     def format(self, wrong_attrs, missing_pages):
         """Format as CSV"""
         string = BytesIO()
@@ -112,6 +113,9 @@ class Csv(_Formatter):
         return ret
 
 class Wikitext(_Formatter):
+    
+    MULTIPLE_FILES = True
+    
     def format(self, wrong_attrs, missing_pages):
         """Format as Wikitext"""
         out = {}
@@ -131,7 +135,7 @@ class Wikitext(_Formatter):
         try:
             os.mkdir(location)
         except OSError as e:
-            if e.errno != errno.EEXIST:
+            if e.errno != errno.EEXIST or os.path.isfile(location):
                 raise
         
         for name, content in files.iteritems():

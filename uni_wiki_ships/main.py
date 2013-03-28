@@ -28,6 +28,8 @@ import sqlite3
 import sys
 import urllib2
 from formatters import InvalidLocation
+import outputters
+from outputters import InvalidSetup
 logger = logging.getLogger(__name__)
 logger.addHandler(logging.StreamHandler())
 
@@ -155,10 +157,6 @@ def get_database(remote=REMOTE_DATABASE_LOC, local=path.join(path.dirname(__file
             print('Error fetching webpage. The server said:')
             print(e.fp.read())
         
-def invalid_format(parser):
-    parser.error('Invalid format please choose from {}'\
-                  .format(', '.join([i for i in formatters.available()])))
-
 def main():
     log = logging.getLogger()
     log.setLevel(logging.DEBUG)
@@ -172,6 +170,8 @@ def main():
             help='File to save output to, use "stdout" to print to screen')
     parser.add_argument('-f', '--format', action='store', default='text',
             help='Format for the output')
+    parser.add_argument('-o', '--output', action='store', default='text',
+            help='How to output text')
     parser.add_argument('-p', '--pause', default=30, type=int,
             help='Number of seconds to wait between requests to wiki. '
                  'Defaults to 30', action='store')
@@ -181,7 +181,18 @@ def main():
     try:
         formatter = getattr(formatters, args.format.capitalize())()
     except AttributeError:
-        invalid_format(parser)
+        parser.error('Invalid format please choose from {}'\
+                  .format(', '.join([i for i in formatters.available()])))
+    
+#    try:
+    outputter = getattr(outputters, args.output.capitalize())\
+                        (args.output_file, formatter)
+#    except AttributeError:
+#        parser.error('Invalid output {} please choose from {}'\
+#                  .format(args.output, ', '.join([i for i in outputters.available()])))
+#    except outputters.InvalidSetup as e:
+#        parser.error(e)
+#        
         
     try:
         ships = get_ships()
@@ -195,7 +206,7 @@ def main():
     pages, missing_pages = get_pages(ships.keys(), args.pause)
     
     try:
-        formatter(pages, ships, missing_pages, args.output_file)
+        outputter(formatter(pages, ships, missing_pages, args.output_file))
     except EnvironmentError as e:
         try:
             filename = e.filename
@@ -204,9 +215,6 @@ def main():
         parser.error('Error accessing file {}: {}'.format(filename, e.strerror))
     except InvalidLocation as e:
         parser.error('Invalid location {}: {}'.format(args.output_file, e))
-        
-    except NotImplementedError:
-        invalid_format(parser)
     
 if __name__ == '__main__':
     main()
