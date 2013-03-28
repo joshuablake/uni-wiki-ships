@@ -34,8 +34,13 @@ class Attribute(object):
             ([\d,\.]+) #allow numbers, thousand seperator and decimal points'''\
             .format(self.name), re.X)
         self.db_name = db_name
+        if not unit or unit.startswith(' '):
+            self.unit = unit
+        else:
+            self.unit = ' '+unit
         attributes.append(self)
         logger.debug('Created attribute %s', self)
+        
         
     def __str__(self):
         return self.name
