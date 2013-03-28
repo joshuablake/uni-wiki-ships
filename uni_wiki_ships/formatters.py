@@ -6,7 +6,12 @@ import csv
 import inspect
 import logging
 import sys
+import os
+import errno
+import common
 logger = logging.getLogger(__name__)
+
+class InvalidLocation(common.AppException): pass
 
 def available():
     return [i[0] for i in inspect.getmembers(sys.modules[__name__], inspect.isclass)
@@ -16,6 +21,7 @@ class _Formatter(object):
     """Format the results"""
     
     def __call__(self, pages, ships, missing_pages, output_loc):
+        self.pages = pages
         self.output(
             self.format(
                 self.check(pages, ships), missing_pages
@@ -50,11 +56,11 @@ class _Formatter(object):
                 except attributes.NotPresentError:
                     logger.info('%s has no value for %s', ship, attribute)
                     if not expected == None:
-                        wrong[ship].append(WrongAttr(attribute.name, None, expected))
+                        wrong[ship].append(WrongAttr(attribute, None, expected))
                     continue
                 if not value == expected and abs(value - (expected or 0)) > 1:
                     logger.info('%s has incorrect value for %s', ship, attribute)
-                    wrong[ship].append(WrongAttr(attribute.name, value, expected))
+                    wrong[ship].append(WrongAttr(attribute, value, expected))
                 else:
                     logger.debug('%s has correct value for %s', ship, attribute)
         return wrong
@@ -105,6 +111,32 @@ class Csv(_Formatter):
         string.close()
         return ret
 
+class Wikitext(_Formatter):
+    def format(self, wrong_attrs, missing_pages):
+        """Format as Wikitext"""
+        out = {}
+        for k in wrong_attrs:
+            page = self.pages[k]
+            for i in wrong_attrs[k]:
+                correct = '{0:,.9999g}'.format(i.correct)
+                if correct.endswith('.0'): correct = correct[:-2]
+                page = i.attr.regex.sub(r'|{}={}'\
+                                    .format(i.attr, correct), page)
+            out[k] = page
+        return out
+    
+    def output(self, files, location):
+        if location == 'stdout':
+            raise InvalidLocation('Wikitext cannot be output to stdout')
+        try:
+            os.mkdir(location)
+        except OSError as e:
+            if e.errno != errno.EEXIST:
+                raise
+        
+        for name, content in files.iteritems():
+            with open(os.path.join(location, name+'.txt'), 'wb') as f:
+                f.write(content.encode('UTF-8'))
     
 if __name__ == '__main__':
     print('\n'.join(available()))
