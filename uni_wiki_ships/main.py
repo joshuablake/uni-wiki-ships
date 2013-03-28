@@ -27,7 +27,9 @@ import logging
 import sqlite3
 import sys
 import urllib2
+from formatters import InvalidLocation
 logger = logging.getLogger(__name__)
+logger.addHandler(logging.StreamHandler())
 
 REMOTE_DATABASE_LOC = 'http://www.fuzzwork.co.uk/dump/retribution-1.1-84566/eve.db.bz2'
 """Location of static dump"""
@@ -144,8 +146,14 @@ def get_ships(db=path.join(path.dirname(__file__), 'eve.db')):
 
 def get_database(remote=REMOTE_DATABASE_LOC, local=path.join(path.dirname(__file__), 'eve.db')):
     from bz2 import decompress
+    logger.info('Fetching %s into %s', remote, local)
+    req = urllib2.Request(remote, headers={'User-Agent' : "E-Uni Wiki Bot"}) 
     with open(local, 'wb') as local_file:
-        local_file.write(decompress(urllib2.urlopen(remote).read())) 
+        try:
+            local_file.write(decompress(urllib2.urlopen(req).read())) 
+        except urllib2.HTTPError, e:
+            print('Error fetching webpage. The server said:')
+            print(e.fp.read())
         
 def invalid_format(parser):
     parser.error('Invalid format please choose from {}'\
@@ -194,6 +202,8 @@ def main():
         except AttributeError:
             filename = parser.output_file
         parser.error('Error accessing file {}: {}'.format(filename, e.strerror))
+    except InvalidLocation as e:
+        parser.error('Invalid location {}: {}'.format(args.output_file, e))
         
     except NotImplementedError:
         invalid_format(parser)
