@@ -19,7 +19,6 @@ def available():
 
 class _Formatter(object):
     """Format the results"""
-    
     MULTIPLE_FILES = False
     FILE_EXT = '.txt'
     
@@ -68,16 +67,7 @@ class _Formatter(object):
     def format(self, wrong_attrs, missing_pages):
         """Take incorrect attributes and output in correct format"""
         raise NotImplementedError()
-    
-    def output(self, string, location):
-        """Take formatted string and dump to location"""
-        if location == 'stdout':
-            out_file = sys.stdout
-        else:
-            out_file = open(location, 'wb')
-        with out_file as write:
-            write.write(string)
-            
+                
 class Text(_Formatter):
     def format(self, wrong_attrs, missing_pages):
         """Format as a human-readable text string"""
@@ -91,6 +81,7 @@ class Text(_Formatter):
     
 class Csv(_Formatter):
     FILE_EXT = '.csv'
+    
     def format(self, wrong_attrs, missing_pages):
         """Format as CSV"""
         string = BytesIO()
@@ -113,7 +104,6 @@ class Csv(_Formatter):
         return ret
 
 class Wikitext(_Formatter):
-    
     MULTIPLE_FILES = True
     
     def format(self, wrong_attrs, missing_pages):
@@ -128,19 +118,6 @@ class Wikitext(_Formatter):
                                     .format(i.attr, correct), page)
             out[k] = page
         return out
-    
-    def output(self, files, location):
-        if location == 'stdout':
-            raise InvalidLocation('Wikitext cannot be output to stdout')
-        try:
-            os.mkdir(location)
-        except OSError as e:
-            if e.errno != errno.EEXIST or os.path.isfile(location):
-                raise
         
-        for name, content in files.iteritems():
-            with open(os.path.join(location, name+'.txt'), 'wb') as f:
-                f.write(content.encode('UTF-8'))
-    
 if __name__ == '__main__':
     print('\n'.join(available()))
