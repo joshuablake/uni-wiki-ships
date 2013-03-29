@@ -15,6 +15,17 @@ class Wiki(object):
         return '{}/w/api.php?action={}&{}'.format(
                 self._url, action,
                 '&'.join('{}={}'.format(k, v) for k, v in params.iteritems()))
+        
+    def _make_request(self, *args, **kwargs):
+        url = self._build_url(*args, **kwargs)
+        logger.debug('Fetching from wiki: '+url)
+        try:
+            response = urllib2.urlopen(url)
+        except urllib2.HTTPError as e:
+            logger.warning('Error code %s for page %s response was %s',
+                      e.code, url, e.read())
+            raise
+        return response
     
     def login(self, username, password):
         pass
@@ -37,17 +48,13 @@ class Wiki(object):
         for i in range(0, len(pages), 50):
             while datetime.datetime.now() < next_run:
                 sleep(1)
-            url = self._build_url('query', format='json', prop='revisions',
+            print('Fetching page {} of {}'.format(i / 50 + 1, pages_to_fetch))
+            try:
+                response = self._make_request('query', format='json', prop='revisions',
                                 rvprop='content',
                                 titles='|'.join([quote(i) for i in pages[i:i+50]]))
-            print('Fetching page {} of {}'.format(i / 50 + 1, pages_to_fetch))
-            logger.debug('Fetching from wiki: '+url)
-            
-            try:
-                response = urllib2.urlopen(url)
-            except urllib2.HTTPError as e:
-                logger.warning('Error code %s for page %s response was %s',
-                          e.code, url, e.read())
+            except urllib2.HTTPError:
+                pass
             else:
                 for page in json.load(response)['query']['pages'].values():
                     try:
