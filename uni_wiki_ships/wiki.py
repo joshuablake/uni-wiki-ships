@@ -28,10 +28,12 @@ class Wiki(object):
         next_run = datetime.datetime.now() - datetime.timedelta(hours=1)
         output = {}
         missing = []
+        pages_to_fetch = len(pages) / 50
         for i in range(0, len(pages), 50):
             url = self._url +\
                     'action=query&format=json&prop=revisions&rvprop=content&'\
                     'titles=' + '|'.join([quote(i) for i in pages[i:i+50]])
+            print('Fetching page {} of {}'.format(i / 50 + 1, pages_to_fetch))
             logger.debug('Fetching from wiki: '+url)
             while datetime.datetime.now() < next_run:
                 sleep(1)
@@ -40,18 +42,17 @@ class Wiki(object):
             except urllib2.HTTPError as e:
                 logger.warning('Error code %s for page %s response was %s',
                           e.code, url, e.read())
-                continue
-            finally:
-                next_run = datetime.datetime.now() + datetime.timedelta(seconds=self.delay)
-            for page in json.load(response)['query']['pages'].values():
-                try:
-                    content = page['revisions'][0]['*']
-                except KeyError:
-                    if 'missing' in page:
-                        logger.info('No page %s', page['title'])
-                        missing.append(page['title'])
+            else:
+                for page in json.load(response)['query']['pages'].values():
+                    try:
+                        content = page['revisions'][0]['*']
+                    except KeyError:
+                        if 'missing' in page:
+                            logger.info('No page %s', page['title'])
+                            missing.append(page['title'])
+                        else:
+                            raise
                     else:
-                        raise
-                    continue
-                output[page['title']] = content
+                        output[page['title']] = content
+            next_run = datetime.datetime.now() + datetime.timedelta(seconds=self.delay)
         return output, missing
