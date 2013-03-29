@@ -18,7 +18,6 @@ Options:
 from argparse import ArgumentParser
 from decimal import Decimal
 from os import path
-from time import sleep
 from urllib import quote
 import datetime
 import formatters
@@ -30,6 +29,7 @@ import urllib2
 from formatters import InvalidLocation
 import outputters
 from outputters import InvalidSetup
+from wiki import Wiki
 logger = logging.getLogger(__name__)
 logger.addHandler(logging.StreamHandler())
 
@@ -68,48 +68,6 @@ def query_yes_no(question, default="yes"):
         else:
             sys.stdout.write("Please respond with 'yes' or 'no' "\
                              "(or 'y' or 'n').\n")
-
-def get_pages(to_download, pause):
-    """Get pages from wiki in raw wikitext format
-    
-    Args:
-        to_download (list): pages to get
-        pause (int): seconds to pause between queries to wiki
-    Returns:
-        (dict): format of {page: content}
-    
-    """
-    #next_run in past so first run never delayed
-    next_run = datetime.datetime.now() - datetime.timedelta(hours=1)
-    output = {}
-    missing = []
-    for i in range(0, len(to_download), 50):
-        url = 'http://wiki.eveuniversity.org/w/api.php?'\
-                'action=query&format=json&prop=revisions&rvprop=content&'\
-                'titles=' + '|'.join([quote(i) for i in to_download[i:i+50]])
-        logger.debug('Fetching from wiki: '+url)
-        while datetime.datetime.now() < next_run:
-            sleep(1)
-        try:
-            response = urllib2.urlopen(url)
-        except urllib2.HTTPError as e:
-            logger.warning('Error code %s for page %s response was %s',
-                      e.code, url, e.read())
-            continue
-        finally:
-            next_run = datetime.datetime.now() + datetime.timedelta(seconds=pause)
-        for page in json.load(response)['query']['pages'].values():
-            try:
-                content = page['revisions'][0]['*']
-            except KeyError:
-                if 'missing' in page:
-                    logger.info('No page %s', page['title'])
-                    missing.append(page['title'])
-                else:
-                    raise
-                continue
-            output[page['title']] = content
-    return output, missing
 
 def get_ships(db=path.join(path.dirname(__file__), 'eve.db')):
     """Extract ship attributes from database
@@ -203,7 +161,8 @@ def main():
         get_database(REMOTE_DATABASE_LOC)
         parser.exit('Done!')
         
-    pages, missing_pages = get_pages(ships.keys(), args.pause)
+    wiki = Wiki('wiki.eveuniversity.org')
+    pages, missing_pages = wiki.get_pages(ships.keys(), args.pause)
     
     try:
         outputter(formatter(pages, ships, missing_pages, args.output_file))
