@@ -1,3 +1,4 @@
+from common import AppException
 from time import sleep
 from urllib import quote
 import datetime
@@ -5,6 +6,8 @@ import json
 import logging
 import urllib2
 logger = logging.getLogger(__name__)
+
+class InvalidLogin(AppException): pass
 
 class Wiki(object):
     def __init__(self, url, delay):
@@ -16,19 +19,24 @@ class Wiki(object):
                 self._url, action,
                 '&'.join('{}={}'.format(k, v) for k, v in params.iteritems()))
         
-    def _make_request(self, *args, **kwargs):
-        url = self._build_url(*args, **kwargs)
-        logger.debug('Fetching from wiki: '+url)
+    def _make_request(self, action, post=False, **kwargs):
+        if post:
+            kwargs['format'] = 'json'
+            request = urllib2.Request(self._build_url(action), kwargs)
+        else:
+            request = urllib2.Request(self._build_url(action, format='json', **kwargs))
+        logger.debug('Fetching from wiki: '+request.get_full_url())
         try:
-            response = urllib2.urlopen(url)
+            response = urllib2.urlopen(request)
         except urllib2.HTTPError as e:
             logger.warning('Error code %s for page %s response was %s',
-                      e.code, url, e.read())
+                      e.code, request.get_full_url(), e.read())
             raise
-        return response
+        return json.load(response)
     
     def login(self, username, password):
-        pass
+        response = self._make_request('login', post=True, lgname=username, lgpassword=password)
+        print(response)
     
     def get_pages(self, pages):
         """Get pages from wiki in raw wikitext format
@@ -50,13 +58,13 @@ class Wiki(object):
                 sleep(1)
             print('Fetching page {} of {}'.format(i / 50 + 1, pages_to_fetch))
             try:
-                response = self._make_request('query', format='json', prop='revisions',
+                response = self._make_request('query', prop='revisions',
                                 rvprop='content',
                                 titles='|'.join([quote(i) for i in pages[i:i+50]]))
             except urllib2.HTTPError:
                 pass
             else:
-                for page in json.load(response)['query']['pages'].values():
+                for page in response['query']['pages'].values():
                     try:
                         content = page['revisions'][0]['*']
                     except KeyError:
