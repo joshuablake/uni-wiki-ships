@@ -8,8 +8,13 @@ logger = logging.getLogger(__name__)
 
 class Wiki(object):
     def __init__(self, url, delay):
-        self._url = url + '/w/api.php?'
+        self._url = url
         self.delay = delay
+    
+    def _build_url(self, action, **params):
+        return '{}/w/api.php?action={}&{}'.format(
+                self._url, action,
+                '&'.join('{}={}'.format(k, v) for k, v in params.iteritems()))
     
     def login(self, username, password):
         pass
@@ -30,13 +35,14 @@ class Wiki(object):
         missing = []
         pages_to_fetch = len(pages) / 50
         for i in range(0, len(pages), 50):
-            url = self._url +\
-                    'action=query&format=json&prop=revisions&rvprop=content&'\
-                    'titles=' + '|'.join([quote(i) for i in pages[i:i+50]])
-            print('Fetching page {} of {}'.format(i / 50 + 1, pages_to_fetch))
-            logger.debug('Fetching from wiki: '+url)
             while datetime.datetime.now() < next_run:
                 sleep(1)
+            url = self._build_url('query', format='json', prop='revisions',
+                                rvprop='content',
+                                titles='|'.join([quote(i) for i in pages[i:i+50]]))
+            print('Fetching page {} of {}'.format(i / 50 + 1, pages_to_fetch))
+            logger.debug('Fetching from wiki: '+url)
+            
             try:
                 response = urllib2.urlopen(url)
             except urllib2.HTTPError as e:
