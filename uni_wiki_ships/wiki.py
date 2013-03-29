@@ -8,7 +8,7 @@ logger = logging.getLogger(__name__)
 
 class Wiki(object):
     def __init__(self, url, delay):
-        self._url = url
+        self._url = url + '/w/api.php?'
         self.delay = delay
     
     def login(self, username, password):
@@ -29,7 +29,7 @@ class Wiki(object):
         output = {}
         missing = []
         for i in range(0, len(pages), 50):
-            url = 'http://wiki.eveuniversity.org/w/api.php?'\
+            url = self._url +\
                     'action=query&format=json&prop=revisions&rvprop=content&'\
                     'titles=' + '|'.join([quote(i) for i in pages[i:i+50]])
             logger.debug('Fetching from wiki: '+url)
