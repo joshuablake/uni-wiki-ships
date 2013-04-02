@@ -5,6 +5,8 @@ import datetime
 import json
 import logging
 import urllib2
+import urllib
+from cookielib import CookieJar
 logger = logging.getLogger(__name__)
 
 class InvalidLogin(AppException): pass
@@ -22,7 +24,8 @@ class Wiki(object):
     def _make_request(self, action, post=False, **kwargs):
         if post:
             kwargs['format'] = 'json'
-            request = urllib2.Request(self._build_url(action), kwargs)
+            print(urllib.urlencode(kwargs.items()))
+            request = urllib2.Request(self._build_url(action), urllib.urlencode(kwargs.items()))
         else:
             request = urllib2.Request(self._build_url(action, format='json', **kwargs))
         logger.debug('Fetching from wiki: '+request.get_full_url())
@@ -34,9 +37,15 @@ class Wiki(object):
             raise
         return json.load(response)
     
-    def login(self, username, password):
+    def login(self, username, password, token=''):
+        urllib2.install_opener(urllib2.build_opener(urllib2.HTTPCookieProcessor(CookieJar())))
         response = self._make_request('login', post=True, lgname=username, lgpassword=password)
-        print(response)
+        if response['login']['result'] == 'NeedToken':
+            response = self._make_request('login', post=True, lgname=username, lgpassword=password,
+                                          lgtoken=response['login']['token'])
+        result = response['login']['result']
+        if not result == 'Success':
+            raise InvalidLogin()
     
     def get_pages(self, pages):
         """Get pages from wiki in raw wikitext format
