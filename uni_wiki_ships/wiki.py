@@ -1,15 +1,16 @@
 from common import AppException
+from cookielib import CookieJar
+from hashlib import md5
 from time import sleep
 from urllib import quote
 import datetime
 import json
 import logging
-import urllib2
 import urllib
-from cookielib import CookieJar
+import urllib2
 logger = logging.getLogger(__name__)
 
-class InvalidLogin(AppException): pass
+class RequestError(AppException): pass
 
 class Wiki(object):
     def __init__(self, url, delay):
@@ -24,7 +25,6 @@ class Wiki(object):
     def _make_request(self, action, post=False, **kwargs):
         if post:
             kwargs['format'] = 'json'
-            print(urllib.urlencode(kwargs.items()))
             request = urllib2.Request(self._build_url(action), urllib.urlencode(kwargs.items()))
         else:
             request = urllib2.Request(self._build_url(action, format='json', **kwargs))
@@ -45,7 +45,8 @@ class Wiki(object):
                                           lgtoken=response['login']['token'])
         result = response['login']['result']
         if not result == 'Success':
-            raise InvalidLogin()
+            raise RequestError('Invalid login: {}'.format(result))
+        self._edit_token = False
     
     def get_pages(self, pages):
         """Get pages from wiki in raw wikitext format
@@ -86,3 +87,15 @@ class Wiki(object):
                         output[page['title']] = content
             next_run = datetime.datetime.now() + datetime.timedelta(seconds=self.delay)
         return output, missing
+    
+    def edit_page(self, page, new_content):
+        if not self._edit_token:
+            response = self._make_request('query', prop='info|revisions',
+                                                  intoken='edit',
+                                                  titles='Main%20Page')
+            self._edit_token = response['query']['pages'].values()[0]['edittoken']
+        response = self._make_request('edit', post=True, title=page, text=new_content,
+                           token=self._edit_token, bot='', md5=md5(new_content).hexdigest())
+        if response['edit']['result'] != 'Success':
+            raise RequestError(response['edit']['result'])
+        
