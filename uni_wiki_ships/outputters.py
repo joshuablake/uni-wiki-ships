@@ -61,3 +61,10 @@ class Stdout(_Outputter):
         if self.multiple_files:
             raise InvalidSetup(
                     'Stdout needs format where only single file produced')
+            
+class Wiki(_Outputter):
+    def _validate(self):
+        if not self.wiki.logged_in:
+            raise InvalidSetup('Need login to edit wiki')
+        if not self.multiple_files:
+            raise InvalidSetup('Must edit multiple wiki pages')
