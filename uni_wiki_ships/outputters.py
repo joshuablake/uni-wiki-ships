@@ -11,8 +11,9 @@ class InvalidSetup(common.AppException): pass
 def available():
     return [i[0] for i in inspect.getmembers(sys.modules[__name__], inspect.isclass)
                 if issubclass(i[1], _Outputter) and not i[0].startswith('_')]
+    
 class _Outputter(object):
-    def __init__(self, argument, formatter):
+    def __init__(self, argument, formatter, wiki):
         """Setup new outputter and validate inputs
         Params:
             argument (str): argument pass on command line
@@ -23,6 +24,7 @@ class _Outputter(object):
         self.argument = argument
         self.multiple_files = formatter.MULTIPLE_FILES
         self.formatter = formatter
+        self.wiki = wiki
         self._validate()
     
     def _validate(self):

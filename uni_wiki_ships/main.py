@@ -150,11 +150,6 @@ def main():
     except AttributeError:
         parser.error('Invalid output {} please choose from {}'\
                   .format(args.output, ', '.join([i for i in outputters.available()])))
-    try:
-        outputter = outputter(args.file, formatter)
-    except outputters.InvalidSetup as e:
-        parser.error(e)
-        
         
     try:
         ships = get_ships()
@@ -178,6 +173,11 @@ def main():
             parser.error(e)
     pages, missing_pages = wiki.get_pages(ships.keys())
     
+    try:
+        outputter = outputter(args.file, formatter)
+    except outputters.InvalidSetup as e:
+        parser.error(e)
+        
     try:
         outputter(formatter(pages, ships, missing_pages, args.file))
     except EnvironmentError as e:
