@@ -62,7 +62,7 @@ class Wiki(object):
         next_run = datetime.datetime.now() - datetime.timedelta(hours=1)
         output = {}
         missing = []
-        pages_to_fetch = len(pages) / 50
+        pages_to_fetch = len(pages) / 50 + 1
         for i in range(0, len(pages), 50):
             while datetime.datetime.now() < next_run:
                 sleep(1)

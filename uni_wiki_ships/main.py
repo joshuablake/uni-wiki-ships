@@ -29,7 +29,7 @@ import urllib2
 from formatters import InvalidLocation
 import outputters
 from outputters import InvalidSetup
-from wiki import Wiki
+from wiki import Wiki, RequestError
 logger = logging.getLogger(__name__)
 logger.addHandler(logging.StreamHandler())
 
@@ -101,7 +101,6 @@ def get_ships(db=path.join(path.dirname(__file__), 'eve.db')):
     finally:
         db_conn.close()
     
-    logger.debug('Ships fetched: %s', ships.keys())
     return ships
 
 def get_database(remote=REMOTE_DATABASE_LOC, local=path.join(path.dirname(__file__), 'eve.db')):
@@ -124,33 +123,38 @@ def main():
     log.addHandler(filelog)
     
     parser = ArgumentParser(description='Find incorrect ships on wiki', prog="wikiships")
-    parser.add_argument('output_file', default='stdout', 
+    parser.add_argument('-F', '--file', action='store',
             help='File to save output to, use "stdout" to print to screen')
     parser.add_argument('-f', '--format', action='store', default='text',
             help='Format for the output')
-    parser.add_argument('-o', '--output', action='store', default='text',
+    parser.add_argument('-o', '--output', action='store', default='stdout',
             help='How to output text')
-    parser.add_argument('-p', '--pause', default=30, type=int,
+    parser.add_argument('--pause', default=1, type=int,
             help='Number of seconds to wait between requests to wiki. '
                  'Defaults to 30', action='store')
+    parser.add_argument('-u', '--user', action='store',
+            help='Username of the wiki user')
+    parser.add_argument('-p', '--password', action='store',
+            help='Password of the wiki user')
     args = parser.parse_args()
     logger.debug('Args: %s', args)
-    
+    args.password
     try:
         formatter = getattr(formatters, args.format.capitalize())()
     except AttributeError:
         parser.error('Invalid format please choose from {}'\
                   .format(', '.join([i for i in formatters.available()])))
     
-#    try:
-    outputter = getattr(outputters, args.output.capitalize())\
-                        (args.output_file, formatter)
-#    except AttributeError:
-#        parser.error('Invalid output {} please choose from {}'\
-#                  .format(args.output, ', '.join([i for i in outputters.available()])))
-#    except outputters.InvalidSetup as e:
-#        parser.error(e)
-#        
+    try:
+        outputter = getattr(outputters, args.output.capitalize())
+    except AttributeError:
+        parser.error('Invalid output {} please choose from {}'\
+                  .format(args.output, ', '.join([i for i in outputters.available()])))
+    try:
+        outputter = outputter(args.file, formatter)
+    except outputters.InvalidSetup as e:
+        parser.error(e)
+        
         
     try:
         ships = get_ships()
@@ -159,21 +163,31 @@ def main():
                             'should it be downloaded (~100mb file)?'):
             parser.exit()
         get_database(REMOTE_DATABASE_LOC)
-        parser.exit('Done!')
+        print('Done!')
         
-    wiki = Wiki('wiki.eveuniversity.org')
-    pages, missing_pages = wiki.get_pages(ships.keys(), args.pause)
+    wiki = Wiki('http://wiki.eveuniversity.org', args.pause)
+    try:
+        user = args.user
+        password = args.password
+    except AttributeError:
+        pass
+    else:
+        try:
+            wiki.login(user, password)
+        except RequestError as e:
+            parser.error(e)
+    pages, missing_pages = wiki.get_pages(ships.keys())
     
     try:
-        outputter(formatter(pages, ships, missing_pages, args.output_file))
+        outputter(formatter(pages, ships, missing_pages, args.file))
     except EnvironmentError as e:
         try:
             filename = e.filename
         except AttributeError:
-            filename = parser.output_file
+            filename = parser.file
         parser.error('Error accessing file {}: {}'.format(filename, e.strerror))
     except InvalidLocation as e:
-        parser.error('Invalid location {}: {}'.format(args.output_file, e))
+        parser.error('Invalid location {}: {}'.format(args.file, e))
     
 if __name__ == '__main__':
     main()

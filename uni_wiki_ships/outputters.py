@@ -9,9 +9,8 @@ logger = logging.getLogger(__name__)
 class InvalidSetup(common.AppException): pass
 
 def available():
-    return [i[0] for i in inspect.getmembers(sys.modules[__name__], callable)
-                if not i[0].startswith('_')]
-
+    return [i[0] for i in inspect.getmembers(sys.modules[__name__], inspect.isclass)
+                if issubclass(i[1], _Outputter) and not i[0].startswith('_')]
 class _Outputter(object):
     def __init__(self, argument, formatter):
         """Setup new outputter and validate inputs
