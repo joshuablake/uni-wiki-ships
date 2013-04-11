@@ -16,6 +16,7 @@ class Wiki(object):
     def __init__(self, url, delay):
         self._url = url
         self.delay = delay
+        self.logged_in = False
     
     def _build_url(self, action, **params):
         return '{}/w/api.php?action={}&{}'.format(
@@ -47,6 +48,7 @@ class Wiki(object):
         if not result == 'Success':
             raise RequestError('Invalid login: {}'.format(result))
         self._edit_token = False
+        self.logged_in = True
     
     def get_pages(self, pages):
         """Get pages from wiki in raw wikitext format
