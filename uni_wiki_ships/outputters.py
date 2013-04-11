@@ -4,6 +4,7 @@ import inspect
 import logging
 import os
 import sys
+from enta import output
 logger = logging.getLogger(__name__)
 
 class InvalidSetup(common.AppException): pass
@@ -68,3 +69,7 @@ class Wiki(_Outputter):
             raise InvalidSetup('Need login to edit wiki')
         if not self.multiple_files:
             raise InvalidSetup('Must edit multiple wiki pages')
+        
+    def __call__(self, ouput):
+        for name, content in output.iteritems():
+            self.wiki.edit_page(name, content)
