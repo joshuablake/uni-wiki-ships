@@ -167,17 +167,18 @@ def main():
     except AttributeError:
         pass
     else:
-        try:
-            wiki.login(user, password)
-        except RequestError as e:
-            parser.error(e)
-    pages, missing_pages = wiki.get_pages(ships.keys())
+        if user and password:
+            try:
+                wiki.login(user, password)
+            except RequestError as e:
+                parser.error(e)
     
     try:
-        outputter = outputter(args.file, formatter)
+        outputter = outputter(args.file, formatter, wiki)
     except outputters.InvalidSetup as e:
         parser.error(e)
         
+    pages, missing_pages = wiki.get_pages(ships.keys())
     try:
         outputter(formatter(pages, ships, missing_pages, args.file))
     except EnvironmentError as e:

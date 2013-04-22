@@ -4,7 +4,6 @@ import inspect
 import logging
 import os
 import sys
-from enta import output
 logger = logging.getLogger(__name__)
 
 class InvalidSetup(common.AppException): pass
