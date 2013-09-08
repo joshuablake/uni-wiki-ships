@@ -57,7 +57,7 @@ class _Formatter(object):
                     if not expected == None:
                         wrong[ship].append(WrongAttr(attribute, None, expected))
                     continue
-                if not value == expected and abs(value - (expected or 0)) > 1:
+                if not value == expected and abs(value - (expected or 0)) >= 1:
                     logger.info('%s has incorrect value for %s', ship, attribute)
                     wrong[ship].append(WrongAttr(attribute, value, expected))
                 else:
