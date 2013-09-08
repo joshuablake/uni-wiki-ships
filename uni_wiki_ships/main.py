@@ -159,6 +159,7 @@ def main():
             parser.exit()
         get_database(REMOTE_DATABASE_LOC)
         print('Done!')
+        ships = get_ships()
         
     wiki = Wiki('http://wiki.eveuniversity.org', args.pause)
     try:

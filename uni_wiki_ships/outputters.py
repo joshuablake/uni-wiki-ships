@@ -69,6 +69,6 @@ class Wiki(_Outputter):
         if not self.multiple_files:
             raise InvalidSetup('Must edit multiple wiki pages')
         
-    def __call__(self, ouput):
+    def __call__(self, output):
         for name, content in output.iteritems():
             self.wiki.edit_page(name, content)

@@ -91,6 +91,7 @@ class Wiki(object):
         return output, missing
     
     def edit_page(self, page, new_content):
+        new_content = new_content.encode('utf-8')
         if not self._edit_token:
             response = self._make_request('query', prop='info|revisions',
                                                   intoken='edit',
