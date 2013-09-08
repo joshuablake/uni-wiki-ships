@@ -33,7 +33,7 @@ from wiki import Wiki, RequestError
 logger = logging.getLogger(__name__)
 logger.addHandler(logging.StreamHandler())
 
-REMOTE_DATABASE_LOC = 'http://www.fuzzwork.co.uk/dump/retribution-1.1-84566/eve.db.bz2'
+REMOTE_DATABASE_LOC = 'https://www.fuzzwork.co.uk/dump/odyssey-1.1-91288/odyssey11.sqlite.bz2'
 """Location of static dump"""
 
 def query_yes_no(question, default="yes"):
